@@ -22,6 +22,8 @@ Space-time(line) manipulation from the comfort your terminal
 
 # Features
 
+![Histogram](./docs/demo_hist.png)
+
 * Organizes your timeline into lists based on statuses per count of users you
 follow.
 * Excludes bots

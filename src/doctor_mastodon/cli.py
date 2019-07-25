@@ -160,7 +160,7 @@ def main(args=None):
     input()
 
 
-    mastodon = login("rw")
+    mastodon = login()
 
     for v in (Volumes.High, Volumes.Mid, Volumes.Low):
         list_id = get_list(mastodon, v.name)["id"]

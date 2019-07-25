@@ -2,7 +2,7 @@
 """Bin followers by frecency
 
 Some of the code snippet is copied as is from mastodon_archive.core.login with
-minor modification to *.secret filenames. Therefor:
+minor modification to *.secret filenames. Therefore:
 
 Copyright (C) 2019  Ashwin Vishnu Mohanan <ashwinvis+gh@protonmail.com>
 Copyright (C) 2017-2018  Alex Schroeder <alex@gnu.org>
@@ -25,6 +25,7 @@ import sys
 from dataclasses import dataclass
 from datetime import datetime
 from itertools import zip_longest
+from pathlib import Path
 from time import sleep
 
 from mastodon import Mastodon, MastodonAPIError
@@ -47,118 +48,25 @@ class args:
     with_following = True
 
 
-def login(scope="r"):
+def login():
     global username
     global domain
 
-    if len(scope) == "r":
-        from mastodon_archive.core import read
+    config_dir = Path.home() / ".config/doctor-mastodon" / domain
+    os.makedirs(config_dir, 0o700, exist_ok=True)
 
-        return read(args)
-    else:
-        client_secret = domain + ".rw.client.secret"
-        user_secret = domain + ".rw.user." + username + ".secret"
-        scopes = ["read", "write", "follow"]
+    app = core.App(
+        args.user,
+        scopes=('read', 'write', 'follow'),
+        name="doctor-mastodon",
+    )
+    app.client_secret = config_dir / "client.secret"
+    app.user_secret = config_dir / f"user.{username}.secret"
 
-        pace = hasattr(args, "pace") and args.pace
+    pace = hasattr(args, "pace") and args.pace
+    mastodon = app.login(pace)
 
-        (username, domain) = args.user.split("@")
-
-        url = "https://" + domain
-        # client_secret = domain + '.client.secret'
-        # user_secret = domain + '.user.' + username + '.secret'
-        mastodon = None
-
-        if not os.path.isfile(client_secret):
-
-            print("Registering app")
-            Mastodon.create_app(
-                "mastodon-organize",
-                api_base_url=url,
-                scopes=scopes,
-                to_file=client_secret,
-            )
-
-        if not os.path.isfile(user_secret):
-
-            print("This app needs access to your Mastodon account.")
-
-            mastodon = Mastodon(client_id=client_secret, api_base_url=url)
-
-            url = mastodon.auth_request_url(
-                client_id=client_secret, scopes=scopes
-            )
-
-            print("Visit the following URL and authorize the app:")
-            print(url)
-
-            print("Then paste the access token here:")
-            token = sys.stdin.readline().rstrip()
-
-            try:
-                # on the very first login, --pace has no effect
-                mastodon.log_in(code=token, to_file=user_secret, scopes=scopes)
-
-            except Exception as e:
-
-                print(
-                    "Sadly, that did not work. On some sites, this login mechanism"
-                )
-                print(
-                    "(namely OAuth) seems to be broken. There is an alternative"
-                )
-                print(
-                    "if you are willing to trust us with your password just this"
-                )
-                print("once. We need it just this once in order to get an access")
-                print(
-                    "token. We won't save it. If you don't want to try this, use"
-                )
-                print(
-                    "Ctrl+C to quit. If you want to try it, please provide your"
-                )
-                print("login details.")
-
-                sys.stdout.write("Email: ")
-                sys.stdout.flush()
-                email = sys.stdin.readline().rstrip()
-                sys.stdout.write("Password: ")
-                sys.stdout.flush()
-                password = sys.stdin.readline().rstrip()
-
-                # on the very first login, --pace has no effect
-                mastodon.log_in(
-                    username=email,
-                    password=password,
-                    to_file=user_secret,
-                    scopes=scopes,
-                )
-
-        else:
-
-            if pace:
-
-                # in case the user kept running into a General API problem
-                mastodon = Mastodon(
-                    client_id=client_secret,
-                    access_token=user_secret,
-                    api_base_url=url,
-                    ratelimit_method="pace",
-                    ratelimit_pacefactor=0.9,
-                    request_timeout=300,
-                )
-
-            else:
-
-                # the defaults are ratelimit_method='wait',
-                # ratelimit_pacefactor=1.1, request_timeout=300
-                mastodon = Mastodon(
-                    client_id=client_secret,
-                    access_token=user_secret,
-                    api_base_url=url,
-                )
-
-        return mastodon
+    return mastodon
 
 
 def get_data():
